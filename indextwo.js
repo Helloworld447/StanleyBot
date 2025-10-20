@@ -2,7 +2,7 @@ const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 puppeteer.use(StealthPlugin());
 
-const product_url = "https://www.stanley1913.com/products/winterscape-quencher-h2-0-flowstate-tumbler-40-oz?variant=44559799746687";
+const productURL = "https://www.stanley1913.com/products/stanley-x-loveshackfancy-quencher-h2-0-flowstate-tumbler-ibiza-sunset-40-oz?variant=53973275214184";
 
 var cookies = "";
 
@@ -31,13 +31,28 @@ async function parseCookies(page){
 
 async function addToCart(page) {
   await page.waitForSelector("button[name = 'add']");
-  cookies = await page.cookies();
-  await page.evaluate(async (cookies) => { // Page.evaluate is like doing the below code in the console and pressing enter
+  cookies = await parseCookies(page);
+
+  //Making the bot dynamic by fecthing the required IDs from the page itself
+  const ID = await page.evaluate(() => {
+    return document.querySelector("input[name = 'id']").getAttribute("value");
+  })
+
+  const sectionID =await page.evaluate(() => {
+    return document.querySelector("input[name = 'section-id']").getAttribute("value");
+  })
+
+  const productID = await page.evaluate(() => {
+    return document.querySelector("input[name = 'product-id']").getAttribute("value");
+  })
+
+
+  await page.evaluate(async (cookies, productURL, ID, sectionID, productID) => { // Page.evaluate is like doing the below code in the console and pressing enter
     let response = await fetch("https://www.stanley1913.com/cart/add", {
       "headers": {
         "accept": "application/javascript",
         "accept-language": "en-IN,en-US;q=0.9,en;q=0.8",
-        "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryuuRMhEdqP0nubWP0",
+        "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryuuRMhEdqP0nubWP0",  //Might have to do the dynaic bondary fetching for other websites, but Stanley seems to work with this static one
         "priority": "u=1, i",
         "sec-ch-ua": "\"Google Chrome\";v=\"141\", \"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"141\"",
         "sec-ch-ua-mobile": "?0",
@@ -47,16 +62,16 @@ async function addToCart(page) {
         "sec-fetch-site": "same-origin",
         "x-requested-with": "XMLHttpRequest",
         "cookie": cookies,
-        "Referer": "https://www.stanley1913.com/products/winterscape-quencher-h2-0-flowstate-tumbler-40-oz?variant=44559799746687"
+        "Referer": productURL
       },
-      "body": "------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"form_type\"\r\n\r\nproduct\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"utf8\"\r\n\r\n✓\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"id\"\r\n\r\n44559799746687\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"product-id\"\r\n\r\n8160873676927\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"section-id\"\r\n\r\ntemplate--24580316725608__4b86bc5c-f0d6-46d6-8684-1235f066332e\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"quantity\"\r\n\r\n1\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0--\r\n",
+      "body": `------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"form_type\"\r\n\r\nproduct\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"utf8\"\r\n\r\n✓\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"id\"\r\n\r\n${ID}\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"product-id\"\r\n\r\n${productID}\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"section-id\"\r\n\r\n${sectionID}\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0\r\nContent-Disposition: form-data; name=\"quantity\"\r\n\r\n1\r\n------WebKitFormBoundaryuuRMhEdqP0nubWP0--\r\n`,
       "method": "POST"
     });
-  }, cookies);
+  }, cookies, productURL, ID, sectionID, productID);
 }
 
 async function getShippingToken(page) {
-  let response = await page.evaluate(async (cookies) => {
+  let response = await page.evaluate(async (cookies, productURL) => {
       let response = await fetch("https://www.stanley1913.com/cart.js", {
         "headers": {
           "accept": "*/*",
@@ -69,17 +84,17 @@ async function getShippingToken(page) {
           "sec-fetch-mode": "cors",
           "sec-fetch-site": "same-origin",
           "cookie": cookies,
-          "Referer": "https://www.stanley1913.com/products/winterscape-quencher-h2-0-flowstate-tumbler-40-oz?variant=44559799746687"
+          "Referer": productURL
         },
         "body": null,
         "method": "GET"
       });
       response = await response.json();
       return response;
-    },cookies);
+    },cookies, productURL);
 
-  console.log(response.token);
   let token = response.token.split("?")[0];
+  console.log(token);
   let shippingURL = "https://www.stanley1913.com/checkouts/cn/" + token + "/information";
   await page.goto(shippingURL);
 }
@@ -87,7 +102,7 @@ async function getShippingToken(page) {
 async function run() {
   const page = await givePage();
 
-  await page.goto(product_url);
+  await page.goto(productURL);
   await addToCart(page);
   await getShippingToken(page);
   console.log("Done");
